@@ -13,7 +13,7 @@
 ## Project Steps:
 - <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#environment-setup ">Environment Setup</a>
 - <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#set-up-vpc ">Set Up VPC</a>
-- <a href=" ">Configure Bastion Host</a>
+- <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#bastion-host-configuration ">Configure Bastion Host</a>
 - <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#set-up-eks-cluster">Set Up EKS Cluster</a>
 - <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#create-additional-variables">Create Tfvars File</a>
 - <a href=" ">Execute Terraform Commands</a>
