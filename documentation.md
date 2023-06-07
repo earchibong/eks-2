@@ -17,6 +17,8 @@
 - <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#set-up-eks-cluster">Set Up EKS Cluster</a>
 - <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#create-additional-variables">Create Tfvars File</a>
 - <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#execute-terraform-commands ">Execute Terraform Commands</a>
+- <a href=" ">Outputs</a>
+- <a href=" ">Install Kubectl</a>
 
 <br>
 
