@@ -12,6 +12,7 @@
 
 ## Project Steps:
 - <a href=" ">Environment Setup</a>
+- <a href=" ">set up VPC</a>
 
 <br>
 
@@ -153,6 +154,163 @@ locals {
 
 <img width="1050" alt="local-values" src="https://github.com/earchibong/eks-2/assets/92983658/68bd7fd4-f975-4357-a1bd-bf074b8dc5e0">
 
+
+<br>
+
+<br>
+
+## Set Up VPC
+
+<br>
+
+### Create VPC Variables
+A set of input variables in Terraform for creating a virtual private cloud (VPC) in AWS. It includes variables for the VPC name, CIDR block, availability zones, public and private subnets, database subnets, database subnet group, and various settings for NAT gateways, DNS hostnames and support.
+
+- create a file named `vpc-variables.tf`
+
+```
+
+# VPC Input Variables
+
+# VPC Name
+variable "vpc_name" {
+  description = "VPC Name"
+  type        = string
+}
+
+# VPC CIDR Block
+variable "vpc_cidr_block" {
+  description = "The IPv4 CIDR block for the VPC"
+  type        = string
+}
+
+# VPC Availability Zones
+variable "vpc_availability_zones" {
+  description = "A list of availability zones names or ids in the region"
+  type        = list(string)
+}
+
+# VPC Public Subnets
+variable "vpc_public_subnets" {
+  description = "A list of public subnets inside the VPC"
+  type        = list(string)
+}
+
+# VPC Private Subnets
+variable "vpc_private_subnets" {
+  description = "A list of private subnets inside the VPC"
+  type        = list(string)
+}
+
+# VPC Database Subnets
+variable "vpc_database_subnets" {
+  description = "A list of database subnets inside the VPC"
+  type        = list(string)
+}
+
+# VPC Create Database Subnet Group (True / False)
+variable "vpc_create_database_subnet_group" {
+  description = "VPC Create Database Subnet Group"
+  type        = bool
+}
+
+# VPC Create Database Subnet Route Table (True or False)
+variable "vpc_create_database_subnet_route_table" {
+  description = "VPC Create Database Subnet Route Table"
+  type        = bool
+}
+
+# VPC Enable NAT Gateway (True or False) 
+variable "vpc_enable_nat_gateway" {
+  description = "Enable NAT Gateways for Private Subnets Outbound Communication"
+  type        = bool
+}
+
+# VPC Single NAT Gateway (True or False)
+variable "vpc_single_nat_gateway" {
+  description = "Enable only single NAT Gateway in one Availability Zone to save costs during our demos"
+  type        = bool
+}
+
+# VPC Enable DNS Hostnames (True or False)
+variable "vpc_enable_dns_hostnames" {
+  description = "Whether or not the VPC has DNS hostname support"
+  type        = bool
+}
+
+# VPC Enable DNS Support (True or False)
+variable "vpc_enable_dns_support" {
+  description = "Whether or not the VPC has DNS support"
+  type        = bool
+}
+
+```
+
+<br>
+
+<br>
+
+###  create VPC module
+
+```
+
+# AWS Availability Zones Datasource
+data "aws_availability_zones" "available" {
+  #state = "available"
+  exclude_names = ["us-east-1-iah-1a"]
+}
+
+# Create VPC Terraform Module
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "3.19.0"
+
+  # VPC Basic Details
+  name            = "${local.name}-${var.vpc_name}"
+  cidr            = var.vpc_cidr_block
+  azs             = data.aws_availability_zones.available.names
+  public_subnets  = var.vpc_public_subnets
+  private_subnets = var.vpc_private_subnets
+
+  # Database Subnets
+  create_database_subnet_group       = var.vpc_create_database_subnet_group
+  create_database_subnet_route_table = var.vpc_create_database_subnet_route_table
+  database_subnets                   = var.vpc_database_subnets
+  #create_database_nat_gateway_route = true
+  #create_database_internet_gateway_route = true
+
+  # NAT Gateways - Outbound Communication
+  enable_nat_gateway = var.vpc_enable_nat_gateway
+  single_nat_gateway = var.vpc_single_nat_gateway
+
+  # VPC DNS Parameters
+  enable_dns_hostnames = var.vpc_enable_dns_hostnames
+  enable_dns_support   = var.vpc_enable_dns_support
+
+  # VPC Tags
+  tags     = local.common_tags
+  vpc_tags = local.common_tags
+
+  # Additional Tags to Subnets
+  public_subnet_tags = {
+    Type                                              = "Public Subnets"
+    "kubernetes.io/role/elb"                          = 1
+    "kubernetes.io/cluster/${local.eks_cluster_name}" = "shared"
+  }
+
+  private_subnet_tags = {
+    Type                                              = "private-subnets"
+    "kubernetes.io/role/internal-elb"                 = 1
+    "kubernetes.io/cluster/${local.eks_cluster_name}" = "shared"
+  }
+
+  database_subnet_tags = {
+    Type = "database-subnets"
+  }
+}
+
+
+```
 
 <br>
 
