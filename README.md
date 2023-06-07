@@ -16,3 +16,8 @@
 - Create Security Groups and an AWS EC2 Bastion Host using Terraform Provisioners
 - Deploy AWS EKS Cluster with Public and Private Node Groups
 
+<br>
+
+<br>
+
+Get the full project documentation <a href="https://github.com/earchibong/eks-2/blob/main/documentation.md">here</a>
