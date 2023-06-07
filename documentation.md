@@ -637,7 +637,7 @@ resource "aws_eip" "bastion_eip" {
     module.vpc
   ]
   instance = module.ec2_bastion.id
-  vpc      = true
+  domain      = "vpc"
 }
 
 
