@@ -14,6 +14,7 @@
 - <a href=" ">Environment Setup</a>
 - <a href=" ">set up VPC</a>
 - <a href=" ">Bastion Host Configuration</a>
+- <a href="https://github.com/earchibong/terraform-eks/blob/main/documentation.md#set-up-eks-cluster">EKS Cluster</a>
 
 <br>
 
@@ -971,6 +972,216 @@ resource "aws_eks_cluster" "eks_cluster" {
 <br>
 
 <img width="1058" alt="cluster-module" src="https://github.com/earchibong/eks-2/assets/92983658/f1c258c6-eccd-47d9-bff3-ba98646f4359">
+
+<br>
+
+<br>
+
+### EKS Nodegroup Public
+The node group will be placed in the public subnets specified in the `module.vpc` resource, and the Kubernetes version used is specified by the variable `var.cluster_version`. Remote access is enabled using the `eks-tf-keypair` key pair, and the scaling configuration sets the desired, minimum, and maximum number of nodes to 2, 1, and 2, respectively. 
+
+The update configuration sets the maximum percentage of unavailable worker nodes during updates to 1. Additionally, the code specifies dependencies to ensure that the necessary IAM role permissions are created and deleted before and after the EKS node group is handled. Finally, the node group is tagged with the name `Public-Node-Group`.
+
+<br>
+
+<br>
+
+- create a file named `eks-public-nodegroup.tf`
+
+```
+
+resource "aws_eks_node_group" "eks_ng_public" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_group_name = "${local.name}-eks-ng-public"
+  node_role_arn   = aws_iam_role.eks_nodegroup_role.arn
+  subnet_ids      = module.vpc.public_subnets
+  version         = var.cluster_version #(Optional: Defaults to EKS Cluster Kubernetes version)    
+
+  ami_type       = "AL2_x86_64"
+  capacity_type  = "ON_DEMAND"
+  disk_size      = 20
+  instance_types = ["t3.medium"]
+
+  remote_access {
+    ec2_ssh_key = "eks-tf-keypair" # If you specify this configuration, but do not specify source_security_group_ids when you create an EKS Node Group port 22 is open to the Internet (0.0.0.0/0).
+  }
+
+  scaling_config {
+    desired_size = 2
+    max_size     = 2
+    min_size     = 1
+  }
+
+  # Desired max percentage of unavailable worker nodes during node group update.
+  update_config {
+    max_unavailable = 1
+    #max_unavailable_percentage = 50    # ANY ONE TO USE
+  }
+
+  # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
+  # Otherwise, EKS will not be able to properly delete EC2 Instances and Elastic Network Interfaces.
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.eks_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.eks_AmazonEC2ContainerRegistryReadOnly,
+  ]
+
+  tags = {
+    Name = "Public-Node-Group"
+  }
+}
+
+```
+
+<br>
+
+<br>
+
+<img width="1329" alt="public-nodegroup" src="https://github.com/earchibong/terraform-eks/assets/92983658/921a44d1-20b8-469e-9581-2944194584f8">
+
+
+<br>
+
+<br>
+
+###  EKS Nodegroup Private
+
+- create a file named `eks-private-nodegroup.tf`
+
+```
+
+
+# # Create AWS EKS Node Group - Private
+# resource "aws_eks_node_group" "eks_ng_private" {
+#   cluster_name    = aws_eks_cluster.eks_cluster.name
+
+#   node_group_name = "${local.name}-eks-ng-private"
+#   node_role_arn   = aws_iam_role.eks_nodegroup_role.arn
+#   subnet_ids      = module.vpc.private_subnets
+#   #version = var.cluster_version #(Optional: Defaults to EKS Cluster Kubernetes version)    
+
+#   ami_type       = "AL2_x86_64"  
+#   capacity_type  = "ON_DEMAND"
+#   disk_size      = 20
+#   instance_types = ["t3.medium"]
+
+
+#   remote_access {
+#     ec2_ssh_key = "eks-tf-keypair"    
+#   }
+
+#   scaling_config {
+#     desired_size = 1
+#     min_size     = 1    
+#     max_size     = 2
+#   }
+
+#   # Desired max percentage of unavailable worker nodes during node group update.
+#   update_config {
+#     max_unavailable = 1    
+#     #max_unavailable_percentage = 50    # ANY ONE TO USE
+#   }
+
+#   # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
+#   # Otherwise, EKS will not be able to properly delete EC2 Instances and Elastic Network Interfaces.
+#   depends_on = [
+#     aws_iam_role_policy_attachment.eks_AmazonEKSWorkerNodePolicy,
+#     aws_iam_role_policy_attachment.eks_AmazonEKS_CNI_Policy,
+#     aws_iam_role_policy_attachment.eks_AmazonEC2ContainerRegistryReadOnly,
+#   ]  
+#   tags = {
+#     Name = "Private-Node-Group"
+#   }
+# }
+
+```
+
+<br>
+
+<br>
+
+## Create Additional Variables
+
+<br>
+
+### Bastion EC2 auto.tfvars
+
+`auto.tfvars` is a file that can be used to set variables automatically when running Terraform commands. This is useful when there are many variables that need to be set and it is easier to have them in a separate file rather than inputting them manually on the command line. This file can also be used to set different environments for development and production for example.
+
+
+- create a file named `terraform.tfvars`
+
+```
+
+
+# bastion auto.tfvars
+instance_type    = "t3.micro"
+instance_keypair = "eks-tf-keypair"
+
+# EKS auto.tfvars
+cluster_name                         = "eks-demo"
+cluster_service_ipv4_cidr            = "172.20.0.0/16"
+cluster_version                      = "1.24"
+cluster_endpoint_private_access      = false
+cluster_endpoint_public_access       = true
+cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
+view raw
+
+# Terraform tfvars
+aws_region        = "eu-west-2"
+environment       = "dev"
+business_division = "hr"
+
+# VPC auto.tfvars
+vpc_name                               = "mili-vpc"
+vpc_cidr_block                         = "10.0.0.0/16"
+vpc_availability_zones               = ["eu-west-2a", "eu-west-2b"]
+vpc_public_subnets                     = ["10.0.101.0/24", "10.0.102.0/24"]
+vpc_private_subnets                    = ["10.0.1.0/24", "10.0.2.0/24"]
+vpc_database_subnets                   = ["10.0.151.0/24", "10.0.152.0/24"]
+vpc_create_database_subnet_group       = "true"
+vpc_create_database_subnet_route_table = "true"
+vpc_enable_nat_gateway                 = "true"
+vpc_single_nat_gateway                 = "true"
+vpc_enable_dns_hostnames               = "true"
+vpc_enable_dns_support                 = "true"
+
+
+
+```
+
+<br>
+
+<br>
+
+<img width="1052" alt="terraform-tfvars" src="https://github.com/earchibong/terraform-eks/assets/92983658/053a9960-b877-4d16-b318-2184859625b9">
+
+<br>
+
+<br>
+
+
+## Execute Terraform Commands
+
+```
+
+# Terraform Init
+terraform init
+
+# Terraform Validate
+terraform validate
+
+# Terraform plan
+terraform plan
+
+# Terraform Apply
+terraform apply -auto-approve
+
+# Verify Outputs on the CLI or using below command
+terraform output
+
+
+```
 
 <br>
 
