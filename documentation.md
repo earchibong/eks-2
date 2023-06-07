@@ -13,6 +13,7 @@
 ## Project Steps:
 - <a href=" ">Environment Setup</a>
 - <a href=" ">set up VPC</a>
+- <a href=" ">Bastion Host Configuration</a>
 
 <br>
 
@@ -703,5 +704,276 @@ resource "null_resource" "copy_ec2_keys" {
 
 <br>
 
+
+## Set Up EKS Cluster
+
+<br>
+
+### Set Up EKS Cluster Variables
+
+- create a file named `eks-variables.tf`
+
+```
+
+# EKS Cluster Input Variables
+variable "cluster_name" {
+  description = "Name of the EKS cluster. Also used as a prefix in names of related resources."
+  type        = string
+}
+
+variable "cluster_service_ipv4_cidr" {
+  description = "service ipv4 cidr for the kubernetes cluster"
+  type        = string
+}
+
+variable "cluster_version" {
+  description = "Kubernetes minor version to use for the EKS cluster (for example 1.21)"
+  type        = string
+}
+variable "cluster_endpoint_private_access" {
+  description = "Indicates whether or not the Amazon EKS private API server endpoint is enabled."
+  type        = bool
+}
+
+variable "cluster_endpoint_public_access" {
+  description = "Indicates whether or not the Amazon EKS public API server endpoint is enabled. When it's set to `false` ensure to have a proper private access with `cluster_endpoint_private_access = true`."
+  type        = bool
+}
+
+variable "cluster_endpoint_public_access_cidrs" {
+  description = "List of CIDR blocks which can access the Amazon EKS public API server endpoint."
+  type        = list(string)
+}
+
+# EKS Node Group Variables
+## Placeholder space you can create if required
+
+```
+
+<br>
+
+<br>
+
+<img width="1048" alt="eks-variables" src="https://github.com/earchibong/eks-2/assets/92983658/f39c5884-fedd-4594-9bc4-350acf8b2e57">
+
+<br>
+
+<br>
+
+### EKS Cluster Outputs
+
+- create a file named `eks-outputs.tf`
+
+```
+
+# EKS Cluster Input Variables
+variable "cluster_name" {
+  description = "Name of the EKS cluster. Also used as a prefix in names of related resources."
+  type        = string
+}
+
+variable "cluster_service_ipv4_cidr" {
+  description = "service ipv4 cidr for the kubernetes cluster"
+  type        = string
+}
+
+variable "cluster_version" {
+  description = "Kubernetes minor version to use for the EKS cluster (for example 1.21)"
+  type        = string
+}
+variable "cluster_endpoint_private_access" {
+  description = "Indicates whether or not the Amazon EKS private API server endpoint is enabled."
+  type        = bool
+}
+
+variable "cluster_endpoint_public_access" {
+  description = "Indicates whether or not the Amazon EKS public API server endpoint is enabled. When it's set to `false` ensure to have a proper private access with `cluster_endpoint_private_access = true`."
+  type        = bool
+}
+
+variable "cluster_endpoint_public_access_cidrs" {
+  description = "List of CIDR blocks which can access the Amazon EKS public API server endpoint."
+  type        = list(string)
+}
+
+# EKS Node Group Variables
+## Placeholder space you can create if required
+
+```
+
+<br>
+
+<br>
+
+<img width="1056" alt="cluster-outputs" src="https://github.com/earchibong/eks-2/assets/92983658/100fbbae-ba9f-4e64-b573-1dc207909cce">
+
+<br>
+
+<br>
+
+### EKS Cluster IAM Role
+This will create an iam role for the cluster and sets the assume role policy to allow `eks.amazonaws.com` to assume the role. Then it attaches two policies to the IAM role, `AmazonEKSClusterPolicy` and `AmazonEKSVPCResourceController`, which grants permissions for the role to access resources for an Amazon Elastic Kubernetes Service (EKS) cluster and VPC resources. Additionally, there is commented out code for attaching an additional policy `AmazonEKSVPCResourceController`, which would enable security groups for pods in the EKS cluster.
+
+- create a file `eks-cluster-iam-role.tf`
+
+```
+
+# Create IAM Role
+resource "aws_iam_role" "eks_master_role" {
+  name = "${local.name}-eks-master-role"
+
+  assume_role_policy = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "eks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+POLICY
+}
+
+# Associate IAM Policy to IAM Role
+resource "aws_iam_role_policy_attachment" "eks_AmazonEKSClusterPolicy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  role       = aws_iam_role.eks_master_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_AmazonEKSVPCResourceController" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
+  role       = aws_iam_role.eks_master_role.name
+}
+
+/*
+# Optionally, enable Security Groups for Pods
+# Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
+resource "aws_iam_role_policy_attachment" "eks-AmazonEKSVPCResourceController" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
+  role       = aws_iam_role.eks_master_role.name
+}
+*/
+
+```
+
+<br>
+
+<br>
+
+<img width="1156" alt="eks-iam" src="https://github.com/earchibong/eks-2/assets/92983658/2a4222bd-1e4e-4229-b07b-e2997d94a149">
+
+
+<br>
+
+<br>
+
+### EKS Nodegroup IAM role
+AWS provider in Terraform creates an IAM role for an EKS node group. It will attach policies to the role to allow the nodes to communicate with the EKS control plane, create and manage ENIs, and pull container images from an ECR repository. It creates an IAM role eks_nodegroup_role and attaches the following AWS managed policies to the role:
+
+- `AmazonEKSWorkerNodePolicy`
+- `AmazonEKS_CNI_Policy`
+- `AmazonEC2ContainerRegistryReadOnly
+
+<br>
+
+
+- create a file named `eks-nodegroup-iam-role.tf`
+
+```
+
+# IAM Role for EKS Node Group 
+resource "aws_iam_role" "eks_nodegroup_role" {
+  name = "${local.name}-eks-nodegroup-role"
+
+  assume_role_policy = jsonencode({
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+    Version = "2012-10-17"
+  })
+}
+
+# This policy provides the necessary permissions for the nodes to communicate with the EKS control plane.
+resource "aws_iam_role_policy_attachment" "eks_AmazonEKSWorkerNodePolicy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.eks_nodegroup_role.name
+}
+
+# This policy provides the necessary permissions for the Amazon Elastic Kubernetes Service (EKS) to create and manage the Elastic Network Interfaces (ENIs) used by Kubernetes pods.
+resource "aws_iam_role_policy_attachment" "eks_AmazonEKS_CNI_Policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_nodegroup_role.name
+}
+
+# This policy provides the necessary permissions for the nodes to pull container images from an Amazon Elastic Container Registry (ECR) repository.
+resource "aws_iam_role_policy_attachment" "eks_AmazonEC2ContainerRegistryReadOnly" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.eks_nodegroup_role.name
+}
+
+```
+
+<br>
+
+<br>
+
+<img width="1057" alt="nodegroup-iam" src="https://github.com/earchibong/eks-2/assets/92983658/0ffde3b3-f8a7-4cfa-b576-952d55376832">
+
+<br>
+
+<br>
+
+### EKS Cluster Module
+- create a file named `eks-cluster.tf`
+
+```
+
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = "${local.name}-${var.cluster_name}"
+  role_arn = aws_iam_role.eks_master_role.arn
+  version  = var.cluster_version
+
+  vpc_config {
+    subnet_ids              = module.vpc.public_subnets # Where EKS ENI will be created
+    endpoint_private_access = var.cluster_endpoint_private_access
+    endpoint_public_access  = var.cluster_endpoint_public_access
+    public_access_cidrs     = var.cluster_endpoint_public_access_cidrs
+  }
+
+  kubernetes_network_config {
+    service_ipv4_cidr = var.cluster_service_ipv4_cidr
+  }
+
+  # Enable EKS Cluster Control Plane Logging
+  enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
+
+  # Ensure that IAM Role permissions are created before and deleted after EKS Cluster handling.
+  # Otherwise, EKS will not be able to properly delete EKS managed EC2 infrastructure such as Security Groups.
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_AmazonEKSClusterPolicy,
+    aws_iam_role_policy_attachment.eks_AmazonEKSVPCResourceController,
+  ]
+}
+
+```
+
+<br>
+
+<br>
+
+<img width="1058" alt="cluster-module" src="https://github.com/earchibong/eks-2/assets/92983658/f1c258c6-eccd-47d9-bff3-ba98646f4359">
+
+<br>
+
+<br>
 
 
