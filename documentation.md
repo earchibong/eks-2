@@ -641,9 +641,67 @@ resource "aws_eip" "bastion_eip" {
 
 <br>
 
+<img width="1054" alt="bastion-ip" src="https://github.com/earchibong/eks-2/assets/92983658/0eba98de-ef02-424c-ab3e-9762dafc0d7a">
 
+<br>
+
+<br>
+
+
+### Create Bastion Provisioners
+This code will create a `null resource` named `copy_ec2_keys`. This resource will depend on the creation of the bastion instance. Once the instance is created, this resource will connect to the instance via `ssh` using the private-key file. It will then copy the private-key from the local folder to `/tmp/eks-tf-keypair.pem` on the bastion server. 
+
+the `remote-exec` block then changes the permission of the key file to `400`
+
+the last code block will run a command locally on the machine that is running Terraform, it writes the date and the vpc_id of the vpc module in the text file in the directory `local-exec-output-files/`.
+
+- create a file named `bastion-provisioners.tf`
+
+```
+
+# Create a Null Resource and Provisioners
+resource "null_resource" "copy_ec2_keys" {
+  depends_on = [module.ec2_bastion]
+  # Connection Block for Provisioners to connect to EC2 Instance
+  connection {
+    type        = "ssh"
+    host        = aws_eip.bastion_eip.public_ip
+    user        = "ec2-user"
+    password    = ""
+    private_key = file("private-key/eks-tf-keypair.pem")
+  }
+
+  ## File Provisioner: Copies the terraform-key.pem file to /tmp/terraform-key.pem
+  provisioner "file" {
+    source      = "private-key/eks-tf-keypair.pem"
+    destination = "/tmp/eks-tf-keypair.pem"
+  }
+  ## Remote Exec Provisioner: Using remote-exec provisioner fix the private key permissions on Bastion Host
+  provisioner "remote-exec" {
+    inline = [
+      "sudo chmod 400 /tmp/eks-tf-keypair.pem"
+    ]
+  }
+  ## Local Exec Provisioner:  local-exec provisioner (Creation-Time Provisioner - Triggered during Create Resource)
+  provisioner "local-exec" {
+    command     = "echo VPC created on `date` and VPC ID: ${module.vpc.vpc_id} >> creation-time-vpc-id.txt"
+    working_dir = "local-exec-output-files/"
+    #on_failure = continue
+  }
+
+}
+
+```
 
 <br>
 
 <br>
+
+<img width="1058" alt="bastion-provisioners" src="https://github.com/earchibong/eks-2/assets/92983658/23206462-b757-457a-b95a-d5285a7975d7">
+
+<br>
+
+<br>
+
+
 
