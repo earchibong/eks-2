@@ -1236,4 +1236,87 @@ terraform output
 
 <br>
 
+<img width="956" alt="apply" src="https://github.com/earchibong/terraform-eks/assets/92983658/0b1c8c58-7e9b-46ad-85c4-78ae166c88fa">
+
+
+<br>
+
+<br>
+
+<img width="1388" alt="instances" src="https://github.com/earchibong/terraform-eks/assets/92983658/961005b7-1075-4d5f-92b3-afe62d8bc00e">
+
+
+<br>
+
+<br>
+
+<img width="1391" alt="vpc" src="https://github.com/earchibong/terraform-eks/assets/92983658/405ea037-71b1-4e2e-8ce9-7e0f2f063813">
+
+<br>
+
+<br>
+
+<img width="1391" alt="cluster" src="https://github.com/earchibong/terraform-eks/assets/92983658/3a2de274-611c-4273-a37c-c5188aeda313">
+
+<br>
+
+<br>
+
+<img width="1388" alt="roles" src="https://github.com/earchibong/terraform-eks/assets/92983658/e0eb945e-f472-42d8-a808-ab66696aa5bb">
+
+<br>
+
+<br>
+
+## Install kubectl CLI
+
+- Determine whether you already have kubectl installed on your device.
+
+```
+
+kubectl version --short --client
+
+```
+
+<br>
+
+<br>
+
+- If you receive no output, then you either don't have kubectl installed, or it's not installed in a location that's in your device's path.
+Install or update kubectl on macOS, Linux, and Windows operating systems with the following link: https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html
+
+<br>
+
+<br>
+
+- configure kubectl
+
+```
+
+# Configure kubeconfig for kubectl
+aws eks --region <region-code> update-kubeconfig --name <cluster_name>
+aws eks --region eu-west-2 update-kubeconfig --name hr-dev-eks-demo
+
+# List Worker Nodes
+kubectl get nodes
+kubectl get nodes -o wide
+
+```
+
+<br>
+
+<br>
+
+<img width="1200" alt="kubectl" src="https://github.com/earchibong/terraform-eks/assets/92983658/4132c9da-f525-4ef2-84c9-3fc751a65394">
+
+<br>
+
+<br>
+
+And that's it! Kubernetes cluster deployed with Terraform.
+
+<br>
+
+<br>
+
 
