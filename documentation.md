@@ -449,6 +449,10 @@ variable "instance_keypair" {
   type        = string
 }
 
+# base_path for refrencing 
+variable "base_path" {}
+
+
 ```
 
 <br>
@@ -462,6 +466,44 @@ variable "instance_keypair" {
 <br>
 
 <br>
+
+### Create Bastion Keypair
+
+- create a file named `bastion-keypair.tf`
+
+```
+
+# Create a key with RSA algorithm with 4096 rsa bits
+resource "tls_private_key" "rsa" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+# Create a key pair using above private key
+resource "aws_key_pair" "instance_keypair" {
+  key_name = "eks-tf-keypair"
+  public_key = tls_private_key.rsa.public_key_openssh
+}
+
+# Save the private key at the specified path
+resource "local_file" "save-key" {
+  content  = tls_private_key.rsa.private_key_pem
+  filename = "${var.base_path}/${var.instance_keypair}.pem"
+}
+
+
+```
+
+<br>
+
+<br>
+
+<img width="908" alt="keypair" src="https://github.com/earchibong/terraform-eks/assets/92983658/cb150137-fca2-4ac4-bf3f-ab3214b0b688">
+
+<br>
+
+<br>
+
 
 ### Create Bastion Security Group
 We will name the security group with a specific naming convention, and associate with a VPC that is created by the `vpc module`. The security group here, is allowing incoming traffic on SSH port from any IP address (ingress_cidr_blocks = [“0.0.0.0/0”]) and it allows all outgoing traffic (egress_rules = [“all-all”]) . It also has a specific tag that is being associated with it. This security group can be used when you want to create a bastion host that is publicly accessible via SSH, and you want to allow all outgoing traffic.
@@ -674,18 +716,18 @@ resource "null_resource" "copy_ec2_keys" {
     host        = aws_eip.bastion_eip.public_ip
     user        = "ec2-user"
     password    = ""
-    private_key = file("private-key/eks-tf-keypair.pem")
+    private_key = file("${var.base_path}/${var.instance_keypair}.pem")
   }
 
   ## File Provisioner: Copies the terraform-key.pem file to /tmp/terraform-key.pem
   provisioner "file" {
-    source      = "private-key/eks-tf-keypair.pem"
-    destination = "/tmp/eks-tf-keypair.pem"
+    source      = local_file.save-key.filename
+    destination = "/tmp/terraform-key.pem"
   }
   ## Remote Exec Provisioner: Using remote-exec provisioner fix the private key permissions on Bastion Host
   provisioner "remote-exec" {
     inline = [
-      "sudo chmod 400 /tmp/eks-tf-keypair.pem"
+      "sudo chmod 400 "/tmp/terraform-key.pem"
     ]
   }
   ## Local Exec Provisioner:  local-exec provisioner (Creation-Time Provisioner - Triggered during Create Resource)
@@ -697,13 +739,15 @@ resource "null_resource" "copy_ec2_keys" {
 
 }
 
+
+
 ```
 
 <br>
 
 <br>
 
-<img width="1058" alt="bastion-provisioners" src="https://github.com/earchibong/eks-2/assets/92983658/23206462-b757-457a-b95a-d5285a7975d7">
+<img width="1225" alt="bastion-provisioner" src="https://github.com/earchibong/terraform-eks/assets/92983658/40756fc9-0363-447e-8ee8-13d975e964a4">
 
 <br>
 
